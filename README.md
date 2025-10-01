@@ -1,6 +1,6 @@
 # 3D_Body_Posture_Analysis
 
-### Main_3D_pose 폴더가 진짜임
+### Main_3D_pose 폴더가 진짜임!
 
 - `3d_pose1_main.py` : ICP 정렬 테스트 1 (실패)
 - `3d_pose2_main.py` : ICP 정렬 테스트 2 (가능)
