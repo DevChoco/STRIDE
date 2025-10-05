@@ -4,7 +4,18 @@ import open3d as o3d
 import copy
 import importlib
 from scipy.spatial import cKDTree
-from .pointcloud_generator import preprocess_for_icp
+
+# 상대 임포트 (패키지로 사용될 때)
+try:
+    from .pointcloud_generator import preprocess_for_icp
+except ImportError:
+    # 절대 임포트 (직접 실행될 때)
+    try:
+        from pointcloud_generator import preprocess_for_icp
+    except ImportError:
+        # preprocess_for_icp가 실제로 사용되지 않는 경우 None으로 설정
+        preprocess_for_icp = None
+        print("Warning: preprocess_for_icp를 임포트할 수 없습니다.")
 
 
 def compute_fpfh(pcd, voxel_size):
@@ -49,22 +60,22 @@ def global_registration_fpfh_ransac(source, target, voxel_size=5.0, ransac_iter=
     src_fpfh = compute_fpfh(src_down, voxel_size)
     tgt_fpfh = compute_fpfh(tgt_down, voxel_size)
 
-    distance_threshold = voxel_size * 1.5
+    distance_threshold = voxel_size * 2.5  # 1.5에서 2.5로 증가: 더 넓은 correspondence 허용
     result = o3d.pipelines.registration.registration_ransac_based_on_feature_matching(
-        src_down, tgt_down, src_fpfh, tgt_fpfh, mutual_filter=True,
+        src_down, tgt_down, src_fpfh, tgt_fpfh, mutual_filter=False,  # mutual_filter 비활성화: 단방향 매칭 허용
         max_correspondence_distance=distance_threshold,
         estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPoint(False),
-        ransac_n=4,
+        ransac_n=3,  # 4에서 3으로 감소: 더 적은 점으로 변환 추정
         checkers=[
-            o3d.pipelines.registration.CorrespondenceCheckerBasedOnEdgeLength(0.9),
+            o3d.pipelines.registration.CorrespondenceCheckerBasedOnEdgeLength(0.8),  # 0.9에서 0.8로 완화
             o3d.pipelines.registration.CorrespondenceCheckerBasedOnDistance(distance_threshold)
         ],
-        criteria=o3d.pipelines.registration.RANSACConvergenceCriteria(max_iteration=ransac_iter, confidence=0.999)
+        criteria=o3d.pipelines.registration.RANSACConvergenceCriteria(max_iteration=ransac_iter, confidence=0.95)  # 0.999에서 0.95로 완화
     )
     return result.transformation, result
 
 
-def multi_scale_icp(source, target, voxel_list=[20.0, 10.0, 5.0], use_point_to_plane=True, max_iter_per_scale=[50, 50, 100]):
+def multi_scale_icp(source, target, voxel_list=[20.0, 10.0, 5.0], use_point_to_plane=True, max_iter_per_scale=[150, 200, 250, 300]):
     """
     복셀 기반 다중 스케일 ICP: 거친 정렬에서 정밀 정렬로 진행
     
@@ -91,7 +102,7 @@ def multi_scale_icp(source, target, voxel_list=[20.0, 10.0, 5.0], use_point_to_p
             src_down.estimate_normals(o3d.geometry.KDTreeSearchParamHybrid(radius=voxel * 2.0, max_nn=30))
             tgt_down.estimate_normals(o3d.geometry.KDTreeSearchParamHybrid(radius=voxel * 2.0, max_nn=30))
 
-        distance_threshold = voxel * 1.5
+        distance_threshold = voxel * 3.0  # 2.5에서 3.0으로 증가: 매우 관대한 correspondence
         estimation = (o3d.pipelines.registration.TransformationEstimationPointToPlane() if use_point_to_plane
                       else o3d.pipelines.registration.TransformationEstimationPointToPoint())
 
@@ -113,10 +124,10 @@ def multi_scale_icp(source, target, voxel_list=[20.0, 10.0, 5.0], use_point_to_p
                       else o3d.pipelines.registration.TransformationEstimationPointToPoint())
         final_result = o3d.pipelines.registration.registration_icp(
             source, target,
-            max_correspondence_distance=voxel_list[-1] * 1.5,
+            max_correspondence_distance=voxel_list[-1] * 2.0,
             init=np.eye(4),
             estimation_method=estimation,
-            criteria=o3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=100)
+            criteria=o3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=200)
         )
         current_trans = final_result.transformation
 
@@ -365,6 +376,7 @@ def align_point_clouds_fpfh(source, target, params=None):
     fitness_threshold_accept = params.get('fitness_threshold_accept', 0.02)
     allow_rotation = params.get('allow_rotation', True)
     allow_small_rotation = params.get('allow_small_rotation', False)
+    use_point_to_plane_icp = params.get('use_point_to_plane_icp', True)  # Point-to-Plane ICP 사용 여부 (아니면 point-to-point로)
 
     src = copy.deepcopy(source)
     tgt = copy.deepcopy(target)
@@ -379,9 +391,11 @@ def align_point_clouds_fpfh(source, target, params=None):
         except Exception as e:
             print("  Global RANSAC 실패:", e)
 
-        # 2) Multi-scale ICP (회전 허용)
-        trans_icp, icp_result = multi_scale_icp(src, tgt, voxel_list=voxel_list, use_point_to_plane=True)
-        print(f"  Multi-scale ICP fitness={icp_result.fitness:.4f}, rmse={icp_result.inlier_rmse:.4f}")
+        # 2) Multi-scale ICP (회전 허용, Point-to-Plane 또는 Point-to-Point)
+        icp_type = "Point-to-Plane" if use_point_to_plane_icp else "Point-to-Point"
+        print(f"  Multi-scale {icp_type} ICP 수행 중...")
+        trans_icp, icp_result = multi_scale_icp(src, tgt, voxel_list=voxel_list, use_point_to_plane=use_point_to_plane_icp)
+        print(f"  Multi-scale {icp_type} ICP fitness={icp_result.fitness:.4f}, rmse={icp_result.inlier_rmse:.4f}")
     else:
         print("  회전 비허용 모드: translation-only ICP 수행")
         # 전역 RANSAC은 사용하지 않고 바로 번역 전용 ICP

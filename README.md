@@ -1,6 +1,18 @@
 # 3D_Body_Posture_Analysis
 
-### Main_3D_pose 폴더가 진짜임!
+## Main Pipline
+- `Fixed_Main_3D_pose` : `Main_3D_pose` + Vertex reduce + Mesh 채우기 + 와이어 프레임 투명
+- `Main_3D_pose` : FPFH를 이용한 정렬수행 + 시각화
+
+## 3d_models Viewer
+> 3d_models 비교분석을 위해만듬
+
+```
+    python -m http.server 8000
+```
+- 접속 : `http://localhost:8000/obj_viewer.html`
+
+-------------
 
 - `3d_pose1_main.py` : ICP 정렬 테스트 1 (실패)
 - `3d_pose2_main.py` : ICP 정렬 테스트 2 (가능)

@@ -312,10 +312,10 @@ def visualize_results(merged_cloud, mesh, skeleton_pcd, skeleton_cylinders):
 
 def main():
     """메인 실행 함수"""
-    print("="*60)
+    print("="*30)
     print("     모듈화된 3D 자세 분석 시스템")
     print("     FPFH 정렬 + 스켈레톤 파싱")
-    print("="*60)
+    print("="*30)
     
     # 입력 이미지 경로 설정
     # views = {

@@ -113,8 +113,19 @@ def process_depth_maps(views_dict, debug_save=True): # 뎁스 파싱
     return point_clouds
 
 
-def align_point_clouds(point_clouds):
-    print("\n=== FPFH 기반 포인트 클라우드 정렬 단계 ===")
+def align_point_clouds(point_clouds, use_point_to_plane_icp=True):
+    """
+    포인트 클라우드 정렬
+    
+    Args:
+        point_clouds (dict): 뷰별 포인트 클라우드 딕셔너리
+        use_point_to_plane_icp (bool): True면 Point-to-Plane ICP, False면 Point-to-Point ICP
+    
+    Returns:
+        list: 정렬된 포인트 클라우드 리스트
+    """
+    icp_mode = "Point-to-Plane" if use_point_to_plane_icp else "Point-to-Point"
+    print(f"\n=== FPFH 기반 포인트 클라우드 정렬 단계 ({icp_mode} ICP) ===")
     
     # 정면을 기준으로 정렬 시작
     aligned_clouds = [point_clouds["front"]]
@@ -135,7 +146,8 @@ def align_point_clouds(point_clouds):
             'fitness_threshold_accept': 0.02,
             'force_cpd': False,
             'allow_rotation': False,
-            'allow_small_rotation': True
+            'allow_small_rotation': True,
+            'use_point_to_plane_icp': use_point_to_plane_icp
         }
         left_aligned = align_point_clouds_fpfh(point_clouds["left"], front_target, params=params_align)
         aligned_clouds.append(left_aligned)
@@ -143,15 +155,16 @@ def align_point_clouds(point_clouds):
     if "right" in point_clouds:
         print("\n우측 뷰를 정면과 정렬...")
         params_align = {
-            'voxel_coarse': 5.0,
-            'voxel_list': [20.0, 10.0, 5.0],
-            'ransac_iter': 20000,
+            'voxel_coarse': 3.0,  # 2.0에서 3.0으로 복원: 더 global한 RANSAC 특징
+            'voxel_list': [10.0, 5.0, 2.5, 1.0],  # 매우 세밀한 4단계 멀티스케일
+            'ransac_iter': 100000,  # 높은 RANSAC 반복 횟수 유지
             'use_cpd': False,
             'cpd_params': {'max_points':1500, 'cpd_beta':2.0, 'cpd_lambda':2.0, 'cpd_iter':40},
             'fitness_threshold_accept': 0.02,
             'force_cpd': False,
-            'allow_rotation': False,
-            'allow_small_rotation': True
+            'allow_rotation': True,  # 우측은 회전이 필요할 수 있음
+            'allow_small_rotation': True,
+            'use_point_to_plane_icp': use_point_to_plane_icp
         }
         right_aligned = align_point_clouds_fpfh(point_clouds["right"], front_target, params=params_align)
         aligned_clouds.append(right_aligned)
@@ -192,7 +205,8 @@ def align_point_clouds(point_clouds):
                 'fitness_threshold_accept': 0.02,
                 'force_cpd': False,
                 'allow_rotation': False,
-                'allow_small_rotation': True
+                'allow_small_rotation': True,
+                'use_point_to_plane_icp': use_point_to_plane_icp
             }
             back_aligned = align_point_clouds_fpfh(point_clouds["back"], side_target, params=params_align)
             aligned_clouds.append(back_aligned)
@@ -284,7 +298,7 @@ def visualize_results(merged_cloud, mesh, skeleton_pcd, skeleton_cylinders):
     # 메시 추가 (있는 경우) - 와이어프레임으로만 표시해 스켈레톤을 가리지 않음
     if mesh is not None:
         mesh_wireframe = o3d.geometry.LineSet.create_from_triangle_mesh(mesh)
-        mesh_wireframe.paint_uniform_color([0.7, 0.7, 1.0])  # 연한 파란색 와이어프레임
+        mesh_wireframe.paint_uniform_color([0.5, 0.5, 0.5])  # 연한 회색 와이어프레임
         vis.add_geometry(mesh_wireframe)
     
     # 스켈레톤 추가
@@ -316,21 +330,38 @@ def main():
     print("     FPFH 정렬 + 스켈레톤 파싱")
     print("="*60)
     
+    # ============================================================
+    # ICP 설정: Point-to-Plane vs Point-to-Point
+    # ============================================================
+    # True: Point-to-Plane ICP (더 정밀, 법선 벡터 기반, 평면에 수직 방향 최적화)
+    # False: Point-to-Point ICP (기본, 점 간 거리 최소화)
+    USE_POINT_TO_PLANE_ICP = True
+    
+    print(f"\n[ICP 모드 설정]")
+    if USE_POINT_TO_PLANE_ICP:
+        print("  ✓ Point-to-Plane ICP 사용 (고정밀 정렬)")
+        print("    - 법선 벡터를 활용하여 평면에 수직 방향으로 정렬")
+        print("    - 더 정확한 표면 매칭 제공")
+    else:
+        print("  ✓ Point-to-Point ICP 사용 (기본 정렬)")
+        print("    - 점 간 거리를 최소화하여 정렬")
+        print("    - 빠른 처리 속도")
+    
     # 입력 이미지 경로 설정
-    # views = {
-    #     "front": r"D:\Lab2\3D_Body_Posture_Analysis_FPFH\test2\여성\여_정면.bmp",
-    #     "right": r"D:\Lab2\3D_Body_Posture_Analysis_FPFH\test2\여성\여_오른쪽.bmp",
-    #     "left": r"D:\Lab2\3D_Body_Posture_Analysis_FPFH\test2\여성\여_왼쪽.bmp",
-    #     "back": r"D:\Lab2\3D_Body_Posture_Analysis_FPFH\test2\여성\여_후면.bmp"
-    # }
+    views = {
+        "front": r"D:\기타\파일 자료\파일\프로젝트 PJ\3D_Body_Posture_Analysis\test2\여성\여_정면.bmp",
+        "right": r"D:\기타\파일 자료\파일\프로젝트 PJ\3D_Body_Posture_Analysis\test2\여성\여_오른쪽.bmp",
+        "left": r"D:\기타\파일 자료\파일\프로젝트 PJ\3D_Body_Posture_Analysis\test2\여성\여_왼쪽.bmp",
+        "back": r"D:\기타\파일 자료\파일\프로젝트 PJ\3D_Body_Posture_Analysis\test2\여성\여_후면.bmp"
+    }
     
     # 다른 테스트 데이터 (남성)
-    views = {
-        "front": r"d:\기타\파일 자료\파일\프로젝트 PJ\3D_Body_Posture_Analysis\test\정상\정면_남\DepthMap0.bmp",
-        "right": r"d:\기타\파일 자료\파일\프로젝트 PJ\3D_Body_Posture_Analysis\test\정상\오른쪽_남\DepthMap0.bmp",
-        "left": r"d:\기타\파일 자료\파일\프로젝트 PJ\3D_Body_Posture_Analysis\test\정상\왼쪽_남\DepthMap0.bmp",
-        "back": r"d:\기타\파일 자료\파일\프로젝트 PJ\3D_Body_Posture_Analysis\test\정상\후면_남\DepthMap0.bmp"
-    }
+    # views = {
+    #     "front": r"D:\기타\파일 자료\파일\프로젝트 PJ\3D_Body_Posture_Analysis\test2\남성\남_정면.bmp",
+    #     "right": r"D:\기타\파일 자료\파일\프로젝트 PJ\3D_Body_Posture_Analysis\test2\남성\남_오른쪽.bmp",
+    #     "left": r"D:\기타\파일 자료\파일\프로젝트 PJ\3D_Body_Posture_Analysis\test2\남성\남_왼쪽.bmp",
+    #     "back": r"D:\기타\파일 자료\파일\프로젝트 PJ\3D_Body_Posture_Analysis\test2\남성\남_후면.bmp"
+    # }
     
     try:
         # 1단계: 깊이맵 처리 및 포인트 클라우드 생성
@@ -341,13 +372,13 @@ def main():
             return
         
         # 2단계: FPFH 기반 포인트 클라우드 정렬
-        aligned_clouds = align_point_clouds(point_clouds)
+        aligned_clouds = align_point_clouds(point_clouds, use_point_to_plane_icp=USE_POINT_TO_PLANE_ICP)
         
         # 3단계: 포인트 클라우드 병합 및 정리
         merged_cloud = merge_and_clean_pointclouds(aligned_clouds)
         
-        # 4단계: 고급 메시 생성, 홀 채우기 및 버텍스 리덕션
-        print("\n=== 고급 메시 생성 및 뎁스 이미지 한계 보완 ===")
+        # 4단계:  메시 생성, 홀 채우기 및 버텍스 리덕션
+        print("\n===  메시 생성 및 뎁스 이미지 한계 보완 ===")
         print("포인트 클라우드를 고품질 메시로 변환하고 팔로 가려진 부분 등 누락된 영역을 지능적으로 복원합니다...")
         print("특별히 옆구리, 팔 안쪽 등 큰 구멍들을 집중적으로 채웁니다...")
         
