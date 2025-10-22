@@ -1,4 +1,5 @@
 output/
-Fixed_Main_3D_pose/output/
-Main_3D_pose/output/
+# Fixed_Main_3D_pose/output/
+
 __pycache__
+.vscode
