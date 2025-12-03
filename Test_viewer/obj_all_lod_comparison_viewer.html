@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LOD 스켈레톤 예측 비교 - 보팅 전 개별 결과</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            color: #333333;
+            overflow-x: hidden;
+        }
+        #container {
+            width: 100%;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        #header {
+            padding: 20px 30px;
+            background: #ffffff;
+            border-bottom: 1px solid #e0e0e0;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        #header h1 {
+            margin: 0 0 10px 0;
+            font-size: 28px;
+            font-weight: 600;
+            color: #333333;
+        }
+        .subtitle {
+            font-size: 14px;
+            color: #666666;
+            margin-bottom: 15px;
+        }
+        #controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+        #controls button {
+            padding: 8px 16px;
+            background: #ffffff;
+            color: #333333;
+            border: 1px solid #d0d0d0;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        #controls button:hover {
+            background: #f0f0f0;
+            border-color: #b0b0b0;
+        }
+        #controls button.active {
+            background: #4a90e2;
+            color: #ffffff;
+            border-color: #4a90e2;
+        }
+        #lod-selector {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .lod-button {
+            padding: 10px 20px;
+            background: #ffffff;
+            color: #333333;
+            border: 1px solid #d0d0d0;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .lod-button:hover {
+            background: #f0f0f0;
+            border-color: #b0b0b0;
+        }
+        .lod-button.active {
+            background: #4a90e2;
+            color: #ffffff;
+            border-color: #4a90e2;
+        }
+        #viewport-grid {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            padding: 15px;
+            min-height: calc(100vh - 200px);
+        }
+        .viewport-item {
+            position: relative;
+            background: #ffffff;
+            border-radius: 4px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            min-height: 400px;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #e0e0e0;
+        }
+        .viewport-label {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(74, 144, 226, 0.9);
+            color: #ffffff;
+            padding: 6px 12px;
+            border-radius: 3px;
+            font-size: 13px;
+            font-weight: 600;
+            z-index: 10;
+            pointer-events: none;
+        }
+        .viewport-quality {
+            position: absolute;
+            top: 45px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.75);
+            color: #ffffff;
+            padding: 8px 12px;
+            border-radius: 3px;
+            font-size: 11px;
+            z-index: 10;
+            pointer-events: none;
+            max-width: 250px;
+            line-height: 1.4;
+        }
+        .quality-metric {
+            margin: 3px 0;
+            padding: 2px 0;
+        }
+        .quality-value {
+            font-weight: 600;
+            color: #ffffff;
+        }
+        .viewport-info {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.75);
+            color: #ffffff;
+            padding: 6px 10px;
+            border-radius: 3px;
+            font-size: 11px;
+            z-index: 10;
+            pointer-events: none;
+        }
+        .viewport-canvas {
+            flex: 1;
+            width: 100%;
+            height: 100%;
+        }
+        #loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            flex-direction: column;
+        }
+        #loading.hidden {
+            display: none;
+        }
+        .spinner {
+            border: 4px solid #e0e0e0;
+            border-top: 4px solid #4a90e2;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        #loading-text {
+            font-size: 16px;
+            font-weight: 500;
+            color: #333333;
+        }
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            background: #4a90e2;
+            color: #ffffff;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        .voted-viewport {
+            grid-column: span 3;
+            min-height: 500px;
+        }
+        .voted-label {
+            background: rgba(226, 90, 74, 0.9) !important;
+            font-size: 14px !important;
+            padding: 8px 14px !important;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">
+        <div class="spinner"></div>
+        <div id="loading-text">Loading...</div>
+    </div>
+    
+    <div id="container">
+        <div id="header">
+            <h1>
+                LOD Skeleton Prediction Comparison
+                <span class="badge">VOTING</span>
+            </h1>
+            <div class="subtitle">
+                Multi-resolution LOD skeleton predictions and ensemble voting result
+            </div>
+            <div id="controls">
+                <button id="resetCamera">Reset Camera</button>
+                <button id="toggleWireframe">Wireframe</button>
+                <button id="toggleGrid">Grid</button>
+                <button id="toggleSkeleton" class="active">Skeleton</button>
+                <button id="autoRotate">Auto Rotate</button>
+                <button id="syncCamera" class="active">Sync Camera</button>
+            </div>
+        </div>
+        
+        <div id="viewport-grid">
+            <!-- Ultra Low LOD -->
+            <div class="viewport-item" id="viewport-ultra_low">
+                <div class="viewport-label">Ultra Low</div>
+                <div class="viewport-quality" id="quality-ultra_low"></div>
+                <div class="viewport-info" id="info-ultra_low"></div>
+            </div>
+            
+            <!-- Low LOD -->
+            <div class="viewport-item" id="viewport-low">
+                <div class="viewport-label">Low</div>
+                <div class="viewport-quality" id="quality-low"></div>
+                <div class="viewport-info" id="info-low"></div>
+            </div>
+            
+            <!-- Medium LOD -->
+            <div class="viewport-item" id="viewport-medium">
+                <div class="viewport-label">Medium</div>
+                <div class="viewport-quality" id="quality-medium"></div>
+                <div class="viewport-info" id="info-medium"></div>
+            </div>
+            
+            <!-- Default LOD -->
+            <div class="viewport-item" id="viewport-default">
+                <div class="viewport-label">Default</div>
+                <div class="viewport-quality" id="quality-default"></div>
+                <div class="viewport-info" id="info-default"></div>
+            </div>
+            
+            <!-- High LOD -->
+            <div class="viewport-item" id="viewport-high">
+                <div class="viewport-label">High</div>
+                <div class="viewport-quality" id="quality-high"></div>
+                <div class="viewport-info" id="info-high"></div>
+            </div>
+            
+            <!-- Ultra High LOD -->
+            <div class="viewport-item" id="viewport-ultra_high">
+                <div class="viewport-label">Ultra High</div>
+                <div class="viewport-quality" id="quality-ultra_high"></div>
+                <div class="viewport-info" id="info-ultra_high"></div>
+            </div>
+            
+            <!-- Voted Ensemble Result -->
+            <div class="viewport-item voted-viewport" id="viewport-voted">
+                <div class="viewport-label voted-label">Voted Ensemble</div>
+                <div class="viewport-quality" id="quality-voted"></div>
+                <div class="viewport-info" id="info-voted"></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.157.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.157.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // LOD 레벨 설정
+        const lodLevels = [
+            { name: 'ultra_low', label: 'Ultra Low', meshFile: '../output/3d_models/body_mesh_fpfh_ultra_low.obj', skeletonFile: '../output/3d_models/skeleton_data_ultra_low_individual.json' },
+            { name: 'low', label: 'Low', meshFile: '../output/3d_models/body_mesh_fpfh_low.obj', skeletonFile: '../output/3d_models/skeleton_data_low_individual.json' },
+            { name: 'medium', label: 'Medium', meshFile: '../output/3d_models/body_mesh_fpfh_medium.obj', skeletonFile: '../output/3d_models/skeleton_data_medium_individual.json' },
+            { name: 'default', label: 'Default', meshFile: '../output/3d_models/body_mesh_fpfh.obj', skeletonFile: '../output/3d_models/skeleton_data_default_individual.json' },
+            { name: 'high', label: 'High', meshFile: '../output/3d_models/body_mesh_fpfh_high.obj', skeletonFile: '../output/3d_models/skeleton_data_high_individual.json' },
+            { name: 'ultra_high', label: 'Ultra High', meshFile: '../output/3d_models/body_mesh_fpfh_ultra_high.obj', skeletonFile: '../output/3d_models/skeleton_data_ultra_high_individual.json' },
+            { name: 'voted', label: 'Voted Ensemble', meshFile: '../output/3d_models/body_mesh_fpfh.obj', skeletonFile: '../output/3d_models/skeleton_data_voted_ensemble.json' }
+        ];
+
+        // 각 뷰포트의 씬, 카메라, 렌더러
+        const viewports = {};
+        let wireframeMode = false;
+        let showGrid = true;
+        let showSkeleton = true;
+        let autoRotateEnabled = false;
+        let syncCamera = true;
+
+        // 모든 뷰포트 초기화
+        function initViewports() {
+            lodLevels.forEach(lod => {
+                const viewportDiv = document.getElementById(`viewport-${lod.name}`);
+                if (!viewportDiv) return;
+
+                const width = viewportDiv.clientWidth;
+                const height = viewportDiv.clientHeight;
+
+                // Scene
+                const scene = new THREE.Scene();
+                scene.background = new THREE.Color(0xffffff);
+
+                // Camera
+                const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 10000);
+                camera.position.set(0, 100, 300);
+
+                // Renderer
+                const renderer = new THREE.WebGLRenderer({ antialias: true });
+                renderer.setSize(width, height);
+                renderer.shadowMap.enabled = true;
+                renderer.localClippingEnabled = true;
+                viewportDiv.appendChild(renderer.domElement);
+
+                // Lights
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+                scene.add(ambientLight);
+
+                const directionalLight1 = new THREE.DirectionalLight(0xffffff, 0.8);
+                directionalLight1.position.set(100, 100, 50);
+                scene.add(directionalLight1);
+
+                const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.4);
+                directionalLight2.position.set(-100, 50, -50);
+                scene.add(directionalLight2);
+
+                // Grid
+                const gridHelper = new THREE.GridHelper(500, 50, 0xcccccc, 0xeeeeee);
+                scene.add(gridHelper);
+
+                // Controls
+                const controls = new OrbitControls(camera, renderer.domElement);
+                controls.enableDamping = true;
+                controls.dampingFactor = 0.05;
+                controls.minDistance = 50;
+                controls.maxDistance = 1000;
+
+                // 카메라 변경 이벤트 제거 (무한 루프 방지)
+                // controls.addEventListener('change', () => {
+                //     if (syncCamera) {
+                //         synchronizeCameras(lod.name);
+                //     }
+                // });
+
+                viewports[lod.name] = {
+                    scene,
+                    camera,
+                    renderer,
+                    controls,
+                    gridHelper,
+                    mesh: null,
+                    skeleton: null
+                };
+
+                // 데이터 로드
+                loadSkeletonData(lod.name, lod.skeletonFile);
+                loadModel(lod.name, lod.meshFile);
+            });
+        }
+
+        // 카메라 동기화 (마스터 뷰포트 기반)
+        let masterViewport = 'default'; // 기본 뷰포트를 마스터로 설정
+        
+        function synchronizeCameras(sourceLod) {
+            if (!syncCamera) return;
+            
+            const sourceViewport = viewports[sourceLod];
+            if (!sourceViewport) return;
+
+            const sourcePos = sourceViewport.camera.position.clone();
+            const sourceTarget = sourceViewport.controls.target.clone();
+
+            Object.keys(viewports).forEach(lodName => {
+                if (lodName !== sourceLod) {
+                    const vp = viewports[lodName];
+                    vp.camera.position.copy(sourcePos);
+                    vp.controls.target.copy(sourceTarget);
+                    vp.camera.updateProjectionMatrix();
+                }
+            });
+        }
+        
+        // 마우스 이벤트로 카메라 동기화 (무한 루프 방지)
+        function setupCameraSync() {
+            Object.keys(viewports).forEach(lodName => {
+                const vp = viewports[lodName];
+                const renderer = vp.renderer;
+                
+                let isDragging = false;
+                
+                renderer.domElement.addEventListener('mousedown', () => {
+                    isDragging = true;
+                    masterViewport = lodName;
+                });
+                
+                renderer.domElement.addEventListener('mouseup', () => {
+                    isDragging = false;
+                });
+                
+                renderer.domElement.addEventListener('mousemove', () => {
+                    if (isDragging && syncCamera && masterViewport === lodName) {
+                        requestAnimationFrame(() => synchronizeCameras(lodName));
+                    }
+                });
+                
+                renderer.domElement.addEventListener('wheel', () => {
+                    if (syncCamera) {
+                        masterViewport = lodName;
+                        requestAnimationFrame(() => synchronizeCameras(lodName));
+                    }
+                });
+            });
+        }
+
+        // 스켈레톤 데이터 로드
+        function loadSkeletonData(lodName, skeletonFile) {
+            console.log(`[${lodName}] Attempting to load skeleton from: ${skeletonFile}`);
+            fetch(skeletonFile)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log(`[${lodName}] ✓ Skeleton data loaded successfully`);
+                    updateQualityInfo(lodName, data);
+                    
+                    if (viewports[lodName].mesh) {
+                        addSkeletonToScene(lodName, data);
+                    } else {
+                        viewports[lodName].skeletonData = data;
+                    }
+                })
+                .catch(error => {
+                    console.error(`[${lodName}] ✗ Skeleton loading failed:`, error);
+                    console.error(`[${lodName}] File path: ${skeletonFile}`);
+                });
+        }
+
+        // 스켈레톤 추가
+        function addSkeletonToScene(lodName, skeletonData) {
+            const viewport = viewports[lodName];
+            if (!viewport || !skeletonData || !skeletonData.points) return;
+
+            // 기존 스켈레톤 제거
+            if (viewport.skeleton) {
+                viewport.scene.remove(viewport.skeleton);
+                viewport.skeleton = null;
+            }
+
+            const mesh = viewport.mesh;
+            if (!mesh) return;
+
+            // 메시의 바운딩 박스
+            const meshBox = new THREE.Box3().setFromObject(mesh);
+            const meshSize = meshBox.getSize(new THREE.Vector3());
+
+            // 스켈레톤 중심 및 크기 계산
+            let skeletonCenterX = 0, skeletonCenterY = 0, skeletonCenterZ = 0;
+            let skeletonMinY = Infinity, skeletonMaxY = -Infinity;
+            let pointCount = 0;
+
+            for (const [name, point] of Object.entries(skeletonData.points)) {
+                skeletonCenterX += point.x;
+                skeletonCenterY += point.y;
+                skeletonCenterZ += point.z;
+                skeletonMinY = Math.min(skeletonMinY, point.y);
+                skeletonMaxY = Math.max(skeletonMaxY, point.y);
+                pointCount++;
+            }
+
+            if (pointCount > 0) {
+                skeletonCenterX /= pointCount;
+                skeletonCenterY /= pointCount;
+                skeletonCenterZ /= pointCount;
+            }
+
+            const skeletonSizeY = skeletonMaxY - skeletonMinY;
+
+            // 스케일 계산
+            let scale;
+            if (skeletonData.mesh_info && skeletonData.mesh_info.height) {
+                scale = meshSize.y / skeletonData.mesh_info.height;
+            } else {
+                scale = (meshSize.y / skeletonSizeY) * 0.9;
+            }
+
+            // 오프셋 계산
+            const offsetX = -skeletonCenterX;
+            const offsetY = -skeletonCenterY;
+            const baseOffsetZ = -skeletonCenterZ;
+            const pelvisBackOffset = -6;
+            const shoulderBackOffset = -10;
+            const spineBackOffset = -5;
+            const neckBackOffset = -5;
+            const yAdjustment = meshSize.y * 0.15;
+
+            // 스켈레톤 그룹 생성
+            const skeletonGroup = new THREE.Group();
+
+            // 포인트 생성
+            const pointsGeometry = new THREE.BufferGeometry();
+            const pointsPositions = [];
+            const pointsColors = [];
+
+            // LOD별 색상 (개별 예측은 파란색 계열, voted는 빨간색)
+            const isVoted = lodName === 'voted';
+            const pointColor = isVoted ? [1.0, 0.0, 0.0] : [0.0, 0.5, 1.0];
+
+            for (const [name, point] of Object.entries(skeletonData.points)) {
+                if (name.includes('neck') || name.includes('head')) continue;
+
+                let additionalZOffset = 0;
+                if (name.includes('pelvis') || name.includes('hip') || name.includes('sacr') || name.includes('coccyx')) {
+                    additionalZOffset = pelvisBackOffset;
+                } else if (name.includes('shoulder')) {
+                    additionalZOffset = shoulderBackOffset;
+                } else if (name.includes('thoracic') || name.includes('lumbar')) {
+                    additionalZOffset = spineBackOffset;
+                } else if (name.includes('cervical')) {
+                    additionalZOffset = neckBackOffset;
+                }
+
+                pointsPositions.push(
+                    (point.x + offsetX) * scale,
+                    (point.y + offsetY) * scale + yAdjustment,
+                    (point.z + baseOffsetZ + additionalZOffset) * scale
+                );
+                pointsColors.push(...pointColor);
+            }
+
+            pointsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(pointsPositions, 3));
+            pointsGeometry.setAttribute('color', new THREE.Float32BufferAttribute(pointsColors, 3));
+
+            const pointsMaterial = new THREE.PointsMaterial({
+                size: isVoted ? 15 : 12,
+                vertexColors: true,
+                sizeAttenuation: false,
+                depthTest: false
+            });
+
+            const points = new THREE.Points(pointsGeometry, pointsMaterial);
+            skeletonGroup.add(points);
+
+            // 연결선 생성
+            if (skeletonData.connections) {
+                const lineColor = isVoted ? 0xff6600 : 0x0088ff;
+                
+                skeletonData.connections.forEach(connection => {
+                    const [start, end] = connection;
+                    if (!skeletonData.points[start] || !skeletonData.points[end]) return;
+                    if (start.includes('neck') || start.includes('head') || end.includes('neck') || end.includes('head')) return;
+
+                    // 척추 메인 라인 건너뛰기
+                    const spineNames = [
+                        'cervical_C1', 'cervical_C2', 'cervical_C3', 'cervical_C4', 'cervical_C5', 'cervical_C6', 'cervical_C7',
+                        'thoracic_T1', 'thoracic_T2', 'thoracic_T3', 'thoracic_T4', 'thoracic_T5', 'thoracic_T6',
+                        'thoracic_T7', 'thoracic_T8', 'thoracic_T9', 'thoracic_T10', 'thoracic_T11', 'thoracic_T12',
+                        'lumbar_L1', 'lumbar_L2', 'lumbar_L3', 'lumbar_L4', 'lumbar_L5',
+                        'sacral_S1', 'sacral_S2', 'sacral_S3', 'sacral_S4', 'sacral_S5'
+                    ];
+                    const startIdx = spineNames.indexOf(start);
+                    const endIdx = spineNames.indexOf(end);
+                    if (startIdx !== -1 && endIdx !== -1 && Math.abs(startIdx - endIdx) === 1) return;
+
+                    const startPoint = skeletonData.points[start];
+                    const endPoint = skeletonData.points[end];
+
+                    let startAdditionalZ = 0, endAdditionalZ = 0;
+                    if (start.includes('pelvis') || start.includes('hip') || start.includes('sacr') || start.includes('coccyx')) {
+                        startAdditionalZ = pelvisBackOffset;
+                    } else if (start.includes('shoulder')) {
+                        startAdditionalZ = shoulderBackOffset;
+                    } else if (start.includes('thoracic') || start.includes('lumbar')) {
+                        startAdditionalZ = spineBackOffset;
+                    } else if (start.includes('cervical')) {
+                        startAdditionalZ = neckBackOffset;
+                    }
+
+                    if (end.includes('pelvis') || end.includes('hip') || end.includes('sacr') || end.includes('coccyx')) {
+                        endAdditionalZ = pelvisBackOffset;
+                    } else if (end.includes('shoulder')) {
+                        endAdditionalZ = shoulderBackOffset;
+                    } else if (end.includes('thoracic') || end.includes('lumbar')) {
+                        endAdditionalZ = spineBackOffset;
+                    } else if (end.includes('cervical')) {
+                        endAdditionalZ = neckBackOffset;
+                    }
+
+                    const startPos = new THREE.Vector3(
+                        (startPoint.x + offsetX) * scale,
+                        (startPoint.y + offsetY) * scale + yAdjustment,
+                        (startPoint.z + baseOffsetZ + startAdditionalZ) * scale
+                    );
+
+                    const endPos = new THREE.Vector3(
+                        (endPoint.x + offsetX) * scale,
+                        (endPoint.y + offsetY) * scale + yAdjustment,
+                        (endPoint.z + baseOffsetZ + endAdditionalZ) * scale
+                    );
+
+                    const direction = new THREE.Vector3().subVectors(endPos, startPos);
+                    const length = direction.length();
+                    const cylinderGeometry = new THREE.CylinderGeometry(2, 2, length, 8);
+                    const cylinderMaterial = new THREE.MeshPhongMaterial({
+                        color: lineColor,
+                        emissive: lineColor,
+                        emissiveIntensity: 0.3,
+                        shininess: 80,
+                        depthTest: false
+                    });
+
+                    const cylinder = new THREE.Mesh(cylinderGeometry, cylinderMaterial);
+                    cylinder.position.copy(startPos).add(direction.multiplyScalar(0.5));
+                    cylinder.quaternion.setFromUnitVectors(
+                        new THREE.Vector3(0, 1, 0),
+                        direction.normalize()
+                    );
+
+                    cylinder.renderOrder = 998;
+                    skeletonGroup.add(cylinder);
+                });
+            }
+
+            // 척추 메인 라인
+            const spinePoints = [];
+            const spineOrder = [
+                'cervical_C1', 'cervical_C2', 'cervical_C3', 'cervical_C4', 'cervical_C5', 'cervical_C6', 'cervical_C7',
+                'thoracic_T1', 'thoracic_T2', 'thoracic_T3', 'thoracic_T4', 'thoracic_T5', 'thoracic_T6',
+                'thoracic_T7', 'thoracic_T8', 'thoracic_T9', 'thoracic_T10', 'thoracic_T11', 'thoracic_T12',
+                'lumbar_L1', 'lumbar_L2', 'lumbar_L3', 'lumbar_L4', 'lumbar_L5',
+                'sacral_S1', 'sacral_S2', 'sacral_S3', 'sacral_S4', 'sacral_S5'
+            ];
+
+            for (const name of spineOrder) {
+                if (skeletonData.points[name]) {
+                    const point = skeletonData.points[name];
+                    let additionalZOffset = 0;
+                    if (name.includes('cervical')) {
+                        additionalZOffset = neckBackOffset;
+                    } else if (name.includes('thoracic') || name.includes('lumbar')) {
+                        additionalZOffset = spineBackOffset;
+                    } else if (name.includes('sacr')) {
+                        additionalZOffset = pelvisBackOffset;
+                    }
+
+                    const pos = new THREE.Vector3(
+                        (point.x + offsetX) * scale,
+                        (point.y + offsetY) * scale + yAdjustment,
+                        (point.z + baseOffsetZ + additionalZOffset) * scale
+                    );
+                    spinePoints.push(pos);
+                }
+            }
+
+            const spineColor = isVoted ? 0xff6600 : 0x0088ff;
+            for (let i = 0; i < spinePoints.length - 1; i++) {
+                const startPos = spinePoints[i];
+                const endPos = spinePoints[i + 1];
+                const direction = new THREE.Vector3().subVectors(endPos, startPos);
+                const length = direction.length();
+
+                const spineGeometry = new THREE.CylinderGeometry(3, 3, length, 8);
+                const spineMaterial = new THREE.MeshPhongMaterial({
+                    color: spineColor,
+                    emissive: spineColor,
+                    emissiveIntensity: 0.5,
+                    shininess: 100,
+                    transparent: true,
+                    opacity: 0.7,
+                    depthTest: false,
+                    side: THREE.DoubleSide
+                });
+
+                const spineCylinder = new THREE.Mesh(spineGeometry, spineMaterial);
+                spineCylinder.position.copy(startPos).add(direction.multiplyScalar(0.5));
+                spineCylinder.quaternion.setFromUnitVectors(
+                    new THREE.Vector3(0, 1, 0),
+                    direction.normalize()
+                );
+
+                spineCylinder.renderOrder = 1000;
+                skeletonGroup.add(spineCylinder);
+            }
+
+            viewport.skeleton = skeletonGroup;
+            viewport.skeleton.renderOrder = 999;
+            viewport.scene.add(viewport.skeleton);
+        }
+
+        // 모델 로드
+        function loadModel(lodName, filepath) {
+            const viewport = viewports[lodName];
+            if (!viewport) {
+                console.error(`[${lodName}] Viewport not found!`);
+                return;
+            }
+
+            console.log(`[${lodName}] Attempting to load model from: ${filepath}`);
+            const loader = new OBJLoader();
+            loader.load(
+                filepath,
+                (object) => {
+                    console.log(`[${lodName}] ✓ Model loaded successfully`);
+
+                    if (viewport.mesh) {
+                        viewport.scene.remove(viewport.mesh);
+                    }
+
+                    const box = new THREE.Box3().setFromObject(object);
+                    const center = box.getCenter(new THREE.Vector3());
+                    const size = box.getSize(new THREE.Vector3());
+                    object.position.sub(center);
+                    object.position.x -= 5;
+
+                    // 클리핑 평면
+                    const kneeHeight = -size.y * 0.2;
+                    const clipPlaneKnee = new THREE.Plane(new THREE.Vector3(0, 1, 0), -kneeHeight);
+                    const shoulderWidth = size.x * 0.25;
+                    const clipPlaneLeftArm = new THREE.Plane(new THREE.Vector3(1, 0, 0), shoulderWidth);
+                    const clipPlaneRightArm = new THREE.Plane(new THREE.Vector3(-1, 0, 0), shoulderWidth);
+                    const clippingPlanes = [clipPlaneKnee, clipPlaneLeftArm, clipPlaneRightArm];
+
+                    object.traverse((child) => {
+                        if (child instanceof THREE.Mesh) {
+                            child.material = new THREE.MeshPhongMaterial({
+                                color: 0xb8d4ff,
+                                specular: 0x111111,
+                                shininess: 30,
+                                flatShading: false,
+                                clippingPlanes: clippingPlanes,
+                                clipShadows: true
+                            });
+                        }
+                    });
+
+                    viewport.scene.add(object);
+                    viewport.mesh = object;
+
+                    updateInfo(lodName, object);
+
+                    // 스켈레톤 데이터가 이미 로드된 경우
+                    if (viewport.skeletonData) {
+                        addSkeletonToScene(lodName, viewport.skeletonData);
+                    }
+                },
+                (xhr) => {
+                    const percent = xhr.total > 0 ? (xhr.loaded / xhr.total * 100).toFixed(1) : 'N/A';
+                    if (xhr.loaded === xhr.total && xhr.total > 0) {
+                        console.log(`[${lodName}] Model download complete: ${(xhr.total / 1024).toFixed(1)} KB`);
+                    }
+                },
+                (error) => {
+                    console.error(`[${lodName}] ✗ Model loading failed:`, error);
+                    console.error(`[${lodName}] File path: ${filepath}`);
+                }
+            );
+        }
+
+        // 정보 업데이트
+        function updateInfo(lodName, object) {
+            let vertexCount = 0, faceCount = 0;
+            object.traverse((child) => {
+                if (child instanceof THREE.Mesh) {
+                    if (child.geometry.attributes.position) {
+                        vertexCount += child.geometry.attributes.position.count;
+                    }
+                    if (child.geometry.index) {
+                        faceCount += child.geometry.index.count / 3;
+                    } else if (child.geometry.attributes.position) {
+                        faceCount += child.geometry.attributes.position.count / 3;
+                    }
+                }
+            });
+
+            const infoDiv = document.getElementById(`info-${lodName}`);
+            if (infoDiv) {
+                infoDiv.innerHTML = `
+                    <strong>${lodLevels.find(l => l.name === lodName).label}</strong><br>
+                    Vertices: ${vertexCount.toLocaleString()}<br>
+                    Faces: ${Math.floor(faceCount).toLocaleString()}
+                `;
+            }
+        }
+
+        // 품질 정보 업데이트
+        function updateQualityInfo(lodName, data) {
+            const qualityDiv = document.getElementById(`quality-${lodName}`);
+            if (!qualityDiv || !data || !data.quality_metrics) return;
+
+            const quality = data.quality_metrics;
+            const angles = quality.angles || {};
+
+            let html = '';
+            if (angles.cervical_lordosis !== undefined) {
+                html += `<div class="quality-metric">Cervical: <span class="quality-value">${angles.cervical_lordosis.toFixed(1)}°</span></div>`;
+            }
+            if (angles.thoracic_kyphosis !== undefined) {
+                html += `<div class="quality-metric">Thoracic: <span class="quality-value">${angles.thoracic_kyphosis.toFixed(1)}°</span></div>`;
+            }
+            if (angles.lumbar_lordosis !== undefined) {
+                html += `<div class="quality-metric">Lumbar: <span class="quality-value">${angles.lumbar_lordosis.toFixed(1)}°</span></div>`;
+            }
+
+            qualityDiv.innerHTML = html;
+        }
+
+        // 애니메이션 루프
+        function animate() {
+            requestAnimationFrame(animate);
+
+            Object.keys(viewports).forEach(lodName => {
+                const vp = viewports[lodName];
+                if (autoRotateEnabled && vp.mesh) {
+                    vp.mesh.rotation.y += 0.005;
+                    if (vp.skeleton) vp.skeleton.rotation.y += 0.005;
+                }
+                vp.controls.update();
+                vp.renderer.render(vp.scene, vp.camera);
+            });
+        }
+
+        // 버튼 이벤트
+        function setupControls() {
+            document.getElementById('resetCamera').addEventListener('click', () => {
+                Object.keys(viewports).forEach(lodName => {
+                    const vp = viewports[lodName];
+                    vp.camera.position.set(0, 100, 300);
+                    vp.controls.target.set(0, 0, 0);
+                    vp.controls.update();
+                });
+            });
+
+            document.getElementById('toggleWireframe').addEventListener('click', function() {
+                wireframeMode = !wireframeMode;
+                this.classList.toggle('active', wireframeMode);
+                Object.keys(viewports).forEach(lodName => {
+                    const vp = viewports[lodName];
+                    if (vp.mesh) {
+                        vp.mesh.traverse((child) => {
+                            if (child instanceof THREE.Mesh) {
+                                child.material.wireframe = wireframeMode;
+                            }
+                        });
+                    }
+                });
+            });
+
+            document.getElementById('toggleGrid').addEventListener('click', function() {
+                showGrid = !showGrid;
+                this.classList.toggle('active', !showGrid);
+                Object.keys(viewports).forEach(lodName => {
+                    viewports[lodName].gridHelper.visible = showGrid;
+                });
+            });
+
+            document.getElementById('toggleSkeleton').addEventListener('click', function() {
+                showSkeleton = !showSkeleton;
+                this.classList.toggle('active', showSkeleton);
+                Object.keys(viewports).forEach(lodName => {
+                    const vp = viewports[lodName];
+                    if (vp.skeleton) vp.skeleton.visible = showSkeleton;
+                });
+            });
+
+            document.getElementById('autoRotate').addEventListener('click', function() {
+                autoRotateEnabled = !autoRotateEnabled;
+                this.classList.toggle('active', autoRotateEnabled);
+            });
+
+            document.getElementById('syncCamera').addEventListener('click', function() {
+                syncCamera = !syncCamera;
+                this.classList.toggle('active', syncCamera);
+            });
+        }
+
+        // 윈도우 리사이즈
+        function onWindowResize() {
+            Object.keys(viewports).forEach(lodName => {
+                const vp = viewports[lodName];
+                const viewportDiv = document.getElementById(`viewport-${lodName}`);
+                if (!viewportDiv) return;
+
+                const width = viewportDiv.clientWidth;
+                const height = viewportDiv.clientHeight;
+
+                vp.camera.aspect = width / height;
+                vp.camera.updateProjectionMatrix();
+                vp.renderer.setSize(width, height);
+            });
+        }
+
+        window.addEventListener('resize', onWindowResize, false);
+
+        // 초기화 및 실행
+        initViewports();
+        setupControls();
+        setupCameraSync(); // 카메라 동기화 이벤트 설정
+        animate();
+
+        // 로딩 완료 처리 (약간 지연)
+        setTimeout(() => {
+            document.getElementById('loading').classList.add('hidden');
+        }, 2000);
+    </script>
+</body>
+</html>
