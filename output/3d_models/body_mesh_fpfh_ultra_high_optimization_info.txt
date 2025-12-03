@@ -1,8 +1,8 @@
-=== 메시 최적화 정보 ===
+=== Mesh Optimization Info ===
 
-버텍스 감소율: 0.0%
-삼각형 감소율: 0.0%
-표면적 보존도: 100.0%
-부피 보존도: 100.0%
-전체 품질 점수: 100.0/100
-압축 비율: 1.00:1
+Vertex reduction: 0.0%
+Triangle reduction: 0.0%
+Surface area preservation: 100.0%
+Volume preservation: 100.0%
+Overall quality score: 100.0/100
+Compression ratio: 1.00:1

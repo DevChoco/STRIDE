@@ -1,13 +1,3 @@
-"""
-스켈레톤 파싱 및 자세 분석 모듈
-
-이 모듈은 다음 기능을 제공합니다:
-- AI 기반 랜드마크 검출 (MediaPipe)
-- 포인트 클라우드에서 스켈레톤 생성
-- 척추 각도 분석
-- 스켈레톤 시각화
-"""
-
 import numpy as np
 import math
 import copy
@@ -18,13 +8,13 @@ from PIL import Image
 
 def detect_landmarks_with_ai(image_path):
     """
-    MediaPipe를 사용하여 이미지에서 해부학적 랜드마크를 검출합니다.
+    Detect anatomical landmarks from image using MediaPipe.
     
     Args:
-        image_path (str): 이미지 파일 경로
+        image_path (str): Image file path
         
     Returns:
-        dict: 랜드마크 좌표 딕셔너리 또는 None
+        dict: Landmark coordinates dictionary or None
     """
     mp_pose = mp.solutions.pose
     pose = mp_pose.Pose(
@@ -35,25 +25,20 @@ def detect_landmarks_with_ai(image_path):
     )
     
     try:
-        # 이미지 로드 및 전처리
         with Image.open(image_path) as img:
             image = np.array(img)
             if len(image.shape) == 3:
-                # RGB로 변환 (MediaPipe는 RGB 형식 요구)
                 image_rgb = image
             else:
-                # 그레이스케일을 RGB로 변환
                 image_rgb = np.stack([image, image, image], axis=-1)
             
-            # MediaPipe로 자세 검출
             results = pose.process(image_rgb)
             
             if results.pose_landmarks:
-                # 주요 랜드마크 추출
                 landmarks = {}
                 h, w = image.shape[:2]
                 
-                # MediaPipe 랜드마크 인덱스
+                # MediaPipe 
                 landmark_indices = {
                     'nose': mp_pose.PoseLandmark.NOSE.value,
                     'left_shoulder': mp_pose.PoseLandmark.LEFT_SHOULDER.value,
@@ -65,36 +50,36 @@ def detect_landmarks_with_ai(image_path):
                 for name, idx in landmark_indices.items():
                     if idx < len(results.pose_landmarks.landmark):
                         landmark = results.pose_landmarks.landmark[idx]
-                        if landmark.visibility > 0.5:  # 신뢰도가 높은 랜드마크만 사용
+                        if landmark.visibility > 0.5:
                             landmarks[name] = {
                                 'x': landmark.x * w,
                                 'y': landmark.y * h,
                                 'visibility': landmark.visibility
                             }
                 
-                print(f"AI 랜드마크 검출 성공: {len(landmarks)}개 랜드마크")
+                print(f"AI landmark detection successful: {len(landmarks)} landmarks")
                 return landmarks
             else:
-                print("AI 랜드마크 검출 실패")
+                print("AI landmark detection failed")
                 return None
                 
     except Exception as e:
-        print(f"AI 랜드마크 검출 중 오류: {e}")
+        print(f"Error during AI landmark detection: {e}")
         return None
 
 
 def find_spine_center_at_height(points, height, search_radius=10):
     """
-    특정 높이에서 실제 척추(등 중앙) 위치를 찾습니다.
-    좌우 중앙선을 강제하고 노이즈를 제거합니다.
+    Find actual spine (back center) position at specific height.
+    Enforce midline and remove noise.
     
     Args:
-        points: 포인트 클라우드 배열
-        height: 검색할 높이
-        search_radius: 높이 검색 반경
+        points: Point cloud array
+        height: Height to search
+        search_radius: Height search radius
         
     Returns:
-        tuple: (x, y, z) 척추 중심 좌표
+        tuple: (x, y, z) spine center coordinates
     """
     # 해당 높이 근처의 포인트들 추출
     height_mask = np.abs(points[:, 1] - height) < search_radius
@@ -173,15 +158,12 @@ def create_skeleton_from_pointcloud(pcd, ai_landmarks=None):
     print("- 어깨: 척추보다 앞쪽에 위치")  
     print("- 골반: 몸의 중앙에 위치")
     
-    # 주요 해부학적 랜드마크 정의
     skeleton_points = {}
     
-    # AI 랜드마크를 사용한 정확한 위치 계산
     if ai_landmarks:
-        print("AI 검출 랜드마크를 사용하여 정확한 골격 구조 생성")
+        print("Using AI detected landmarks to create accurate skeletal structure")
         
-        # 이미지 크기 (실제 depth map 크기로 조정)
-        img_size = 512  # 일반적인 depth map 크기
+        img_size = 512
         
         # 어깨 위치 (AI 검출 기반) - 높이 조정
         if 'left_shoulder' in ai_landmarks and 'right_shoulder' in ai_landmarks:
@@ -315,24 +297,21 @@ def create_skeleton_from_pointcloud(pcd, ai_landmarks=None):
     
     for i in range(7):
         ratio = i / 6
-        # 각 경추의 높이 계산
         vertebra_height = cervical_start[1] + (cervical_end_height - cervical_start[1]) * ratio
         
-        # 해당 높이에서 실제 등 중앙(척추) 위치 찾기
         spine_pos = find_spine_center_at_height(points, vertebra_height, search_radius=height * 0.05)
         
         if spine_pos is not None:
             skeleton_points[f'cervical_C{i+1}'] = spine_pos.tolist()
-            print(f"  C{i+1}: 실제 표면에서 검출 - Z={spine_pos[2]:.2f}")
+            print(f"  C{i+1}: Detected from actual surface - Z={spine_pos[2]:.2f}")
         else:
-            # 검출 실패시 보간
             point = [
                 cervical_start[0],
                 vertebra_height,
                 cervical_start[2]
             ]
             skeleton_points[f'cervical_C{i+1}'] = point
-            print(f"  C{i+1}: 보간 사용")
+            print(f"  C{i+1}: Using interpolation")
     
     # 흉추 (T1-T12) - 전체 척추의 40% - 실제 등 표면 기반
     thoracic_length = total_spine_length * 0.40
@@ -362,12 +341,11 @@ def create_skeleton_from_pointcloud(pcd, ai_landmarks=None):
             skeleton_points[f'thoracic_T{i+1}'] = point
             print(f"  T{i+1}: 보간 사용")
     
-    # 요추 (L1-L5) - 전체 척추의 20% - 실제 등 표면 기반
     lumbar_length = total_spine_length * 0.20
     lumbar_start_height = thoracic_end_height
     lumbar_end_height = lumbar_start_height - lumbar_length
     
-    print(f"요추 길이: {lumbar_length:.2f} (전체 척추의 20%)")
+    print(f"Lumbar length: {lumbar_length:.2f} (20% of total spine)")
     
     for i in range(5):
         ratio = i / 4
@@ -390,12 +368,11 @@ def create_skeleton_from_pointcloud(pcd, ai_landmarks=None):
             skeleton_points[f'lumbar_L{i+1}'] = point
             print(f"  L{i+1}: 보간 사용")
     
-    # 천추와 미추 - 전체 척추의 15% - 실제 등 표면 기반
     sacral_length = total_spine_length * 0.15
     sacral_start_height = lumbar_end_height
     sacral_end_height = sacral_start_height - sacral_length
     
-    print(f"천추+미추 길이: {sacral_length:.2f} (전체 척추의 15%)")
+    print(f"Sacrum+coccyx length: {sacral_length:.2f} (15% of total spine)")
     
     # 천추 (S1-S5) - 천추+미추의 80% (골반 후면의 중심)
     sacrum_length = sacral_length * 0.80
@@ -881,7 +858,7 @@ def print_angles(angles):
         angles (dict): 각도 분석 결과 딕셔너리
     """
     print("\n" + "="*60)
-    print("           인체 자세 분석 결과 (의학 표준 기준)")
+    print("      Human Posture Analysis Results (Medical Standards)")
     print("="*60)
     
     def evaluate_metric(value, normal_range, caution_range, unit="°"):
@@ -900,7 +877,7 @@ def print_angles(angles):
                 status = "❌ 비정상"
         return status
     
-    print(f"\n척추 각도 분석 (Cobb Angle):")
+    print(f"\nSpine Angle Analysis (Cobb Angle):")
     
     # 경추 전만각 (Cervical Lordosis)
     cervical = angles['cervical_lordosis']
@@ -923,7 +900,7 @@ def print_angles(angles):
     print(f"     - 정상(Normal): 40-60° | 주의(Caution): 30-40° or 60-70°")
     print(f"     - 비정상(Abnormal): <30° or >70°")
     
-    print(f"\n어깨 및 골반 분석:")
+    print(f"\nShoulder and Pelvis Analysis:")
     
     # 어깨 수평도 (Shoulder Level)
     shoulder = angles['shoulder_level']
@@ -937,7 +914,7 @@ def print_angles(angles):
     print(f"\n   • 골반 기울기 (Pelvic Tilt): {pelvis:.1f}° {pelvis_status}")
     print(f"     - 정상(Normal): ≤3° | 주의(Caution): 3-10° | 비정상(Abnormal): >10°")
     
-    print(f"\n전체 척추 정렬:")
+    print(f"\nOverall Spine Alignment:")
     
     # 척추 정렬도 SVA (Sagittal Vertical Axis)
     sva = angles['spine_alignment']
@@ -946,68 +923,62 @@ def print_angles(angles):
     print(f"     - 정상(Normal): <4cm | 주의(Caution): 4-6cm | 비정상(Abnormal): >6cm")
     
     # 자세 평가 요약
-    print(f"\n자세 평가 요약:")
+    print(f"\nPosture Assessment Summary:")
     issues = []
     
-    # 경추 평가
     if cervical < 10 or cervical > 45:
         if cervical < 10:
-            issues.append(f"❌ 경추 전만 부족 ({cervical:.1f}°) - 거북목 증후군 의심")
+            issues.append(f"❌ Insufficient cervical lordosis ({cervical:.1f}°) - Suspected forward head posture")
         else:
-            issues.append(f"❌ 경추 과전만 ({cervical:.1f}°)")
+            issues.append(f"❌ Excessive cervical lordosis ({cervical:.1f}°)")
     elif cervical < 20 or cervical > 35:
         if cervical < 20:
-            issues.append(f"⚠️  경추 전만 약간 부족 ({cervical:.1f}°)")
+            issues.append(f"⚠️  Slightly insufficient cervical lordosis ({cervical:.1f}°)")
         else:
-            issues.append(f"⚠️  경추 전만 약간 과도 ({cervical:.1f}°)")
+            issues.append(f"⚠️  Slightly excessive cervical lordosis ({cervical:.1f}°)")
     
-    # 흉추 평가
     if thoracic < 15 or thoracic > 55:
         if thoracic > 55:
-            issues.append(f"❌ 흉추 과후만 ({thoracic:.1f}°) - 라운드 숄더 의심")
+            issues.append(f"❌ Excessive thoracic kyphosis ({thoracic:.1f}°) - Suspected rounded shoulders")
         else:
-            issues.append(f"❌ 흉추 후만 부족 ({thoracic:.1f}°)")
+            issues.append(f"❌ Insufficient thoracic kyphosis ({thoracic:.1f}°)")
     elif thoracic < 20 or thoracic > 40:
         if thoracic > 40:
-            issues.append(f"⚠️  흉추 후만 약간 과도 ({thoracic:.1f}°)")
+            issues.append(f"⚠️  Slightly excessive thoracic kyphosis ({thoracic:.1f}°)")
         else:
-            issues.append(f"⚠️  흉추 후만 약간 부족 ({thoracic:.1f}°)")
+            issues.append(f"⚠️  Slightly insufficient thoracic kyphosis ({thoracic:.1f}°)")
     
-    # 요추 평가
     if lumbar < 30 or lumbar > 70:
         if lumbar < 30:
-            issues.append(f"❌ 요추 전만 부족 ({lumbar:.1f}°) - 평평한 허리")
+            issues.append(f"❌ Insufficient lumbar lordosis ({lumbar:.1f}°) - Flat back")
         else:
-            issues.append(f"❌ 요추 과전만 ({lumbar:.1f}°)")
+            issues.append(f"❌ Excessive lumbar lordosis ({lumbar:.1f}°)")
     elif lumbar < 40 or lumbar > 60:
         if lumbar < 40:
-            issues.append(f"⚠️  요추 전만 약간 부족 ({lumbar:.1f}°)")
+            issues.append(f"⚠️  Slightly insufficient lumbar lordosis ({lumbar:.1f}°)")
         else:
-            issues.append(f"⚠️  요추 전만 약간 과도 ({lumbar:.1f}°)")
+            issues.append(f"⚠️  Slightly excessive lumbar lordosis ({lumbar:.1f}°)")
     
-    # 어깨 평가
     if shoulder > 10:
-        issues.append(f"❌ 어깨 불균형 심각 ({shoulder:.1f}°)")
+        issues.append(f"❌ Severe shoulder imbalance ({shoulder:.1f}°)")
     elif shoulder > 2:
-        issues.append(f"⚠️  어깨 약간 불균형 ({shoulder:.1f}°)")
+        issues.append(f"⚠️  Slight shoulder imbalance ({shoulder:.1f}°)")
     
-    # 골반 평가
     if pelvis > 10:
-        issues.append(f"❌ 골반 기울기 심각 ({pelvis:.1f}°)")
+        issues.append(f"❌ Severe pelvic tilt ({pelvis:.1f}°)")
     elif pelvis > 3:
-        issues.append(f"⚠️  골반 약간 기울어짐 ({pelvis:.1f}°)")
+        issues.append(f"⚠️  Slight pelvic tilt ({pelvis:.1f}°)")
     
-    # SVA 평가
     if sva > 6:
-        issues.append(f"❌ 척추 정렬 심각 ({sva:.1f}cm) - 전방/후방 이동 과다")
+        issues.append(f"❌ Severe spine misalignment ({sva:.1f}cm) - Excessive anterior/posterior shift")
     elif sva > 4:
-        issues.append(f"⚠️  척추 약간 정렬 불량 ({sva:.1f}cm)")
+        issues.append(f"⚠️  Slight spine misalignment ({sva:.1f}cm)")
     
     if issues:
-        print(f"\n   발견된 문제점:")
+        print(f"\n   Issues found:")
         for issue in issues:
             print(f"   {issue}")
     else:
-        print(f"   ✅ 모든 지표가 정상 범위입니다! 우수한 자세입니다.")
+        print(f"   ✅ All metrics within normal range! Excellent posture.")
     
     print("="*60 + "\n")

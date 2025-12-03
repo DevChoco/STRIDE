@@ -1,12 +1,11 @@
-"""
-고급 메시 최적화 및 버텍스 리덕션 모듈
+"""Advanced Mesh Optimization and Vertex Reduction Module
 
-이 모듈은 다음 기능을 제공합니다:
-- 지능형 버텍스 리덕션 (Vertex Reduction)
-- 적응형 메시 단순화 (Adaptive Mesh Simplification)
-- 메시 품질 분석 및 최적화
-- 다중 LOD (Level of Detail) 생성
-- 고급 메시 후처리
+This module provides the following features:
+- Intelligent vertex reduction
+- Adaptive mesh simplification
+- Mesh quality analysis and optimization
+- Multiple LOD (Level of Detail) generation
+- Advanced mesh post-processing
 """
 
 import numpy as np
@@ -17,13 +16,13 @@ import copy
 
 def analyze_mesh_complexity(mesh):
     """
-    메시의 복잡성을 분석합니다.
+    Analyze mesh complexity.
     
     Args:
-        mesh (o3d.geometry.TriangleMesh): 분석할 메시
+        mesh (o3d.geometry.TriangleMesh): Mesh to analyze
         
     Returns:
-        dict: 복잡성 분석 결과
+        dict: Complexity analysis results
     """
     if mesh is None:
         return {}
@@ -51,28 +50,28 @@ def analyze_mesh_complexity(mesh):
 
 def smart_vertex_reduction(mesh, target_ratio=0.5, quality_priority=True):
     """
-    지능형 버텍스 리덕션을 수행합니다.
+    Perform intelligent vertex reduction.
     
     Args:
-        mesh (o3d.geometry.TriangleMesh): 대상 메시
-        target_ratio (float): 목표 버텍스 비율 (0.0 ~ 1.0)
-        quality_priority (bool): 품질 우선 모드 여부
+        mesh (o3d.geometry.TriangleMesh): Target mesh
+        target_ratio (float): Target vertex ratio (0.0 ~ 1.0)
+        quality_priority (bool): Whether to prioritize quality
         
     Returns:
-        o3d.geometry.TriangleMesh: 최적화된 메시
+        o3d.geometry.TriangleMesh: Optimized mesh
     """
     if mesh is None:
         return None
     
-    print(f"\n=== 지능형 버텍스 리덕션 ===")
+    print(f"\n=== Intelligent Vertex Reduction ===")
     
     original_vertices = len(mesh.vertices)
     original_triangles = len(mesh.triangles)
     target_triangles = max(100, int(original_triangles * target_ratio))
     
-    print(f"원본: {original_vertices:,}개 버텍스, {original_triangles:,}개 삼각형")
-    print(f"목표: {target_triangles:,}개 삼각형 ({(1-target_ratio)*100:.1f}% 감소)")
-    print(f"모드: {'품질 우선' if quality_priority else '속도 우선'}")
+    print(f"Original: {original_vertices:,} vertices, {original_triangles:,} triangles")
+    print(f"Target: {target_triangles:,} triangles ({(1-target_ratio)*100:.1f}% reduction)")
+    print(f"Mode: {'Quality priority' if quality_priority else 'Speed priority'}")
     
     try:
         # 메시 전처리
@@ -106,27 +105,27 @@ def smart_vertex_reduction(mesh, target_ratio=0.5, quality_priority=True):
         vertex_reduction = (original_vertices - final_vertices) / original_vertices * 100
         triangle_reduction = (original_triangles - final_triangles) / original_triangles * 100
         
-        print(f"결과: {final_vertices:,}개 버텍스, {final_triangles:,}개 삼각형")
-        print(f"실제 감소율: 버텍스 {vertex_reduction:.1f}%, 삼각형 {triangle_reduction:.1f}%")
+        print(f"Result: {final_vertices:,} vertices, {final_triangles:,} triangles")
+        print(f"Actual reduction: vertices {vertex_reduction:.1f}%, triangles {triangle_reduction:.1f}%")
         
         return simplified_mesh
         
     except Exception as e:
-        print(f"버텍스 리덕션 중 오류: {e}")
+        print(f"Error during vertex reduction: {e}")
         return mesh
 
 
 def progressive_simplification(mesh, target_ratio, steps=5):
     """
-    점진적 메시 단순화를 수행합니다.
+    Perform progressive mesh simplification.
     
     Args:
-        mesh (o3d.geometry.TriangleMesh): 대상 메시
-        target_ratio (float): 최종 목표 비율
-        steps (int): 단순화 단계 수
+        mesh (o3d.geometry.TriangleMesh): Target mesh
+        target_ratio (float): Final target ratio
+        steps (int): Number of simplification steps
         
     Returns:
-        o3d.geometry.TriangleMesh: 단순화된 메시
+        o3d.geometry.TriangleMesh: Simplified mesh
     """
     current_mesh = copy.deepcopy(mesh)
     step_ratio = pow(target_ratio, 1.0 / steps)
@@ -135,7 +134,7 @@ def progressive_simplification(mesh, target_ratio, steps=5):
         current_triangles = len(current_mesh.triangles)
         step_target = max(100, int(current_triangles * step_ratio))
         
-        print(f"  단계 {i+1}/{steps}: {current_triangles:,} → {step_target:,} 삼각형")
+        print(f"  Step {i+1}/{steps}: {current_triangles:,} → {step_target:,} triangles")
         
         current_mesh = current_mesh.simplify_quadric_decimation(
             target_number_of_triangles=step_target
@@ -150,14 +149,14 @@ def progressive_simplification(mesh, target_ratio, steps=5):
 
 def adaptive_mesh_optimization(mesh, complexity_level="auto"):
     """
-    메시 복잡성에 따른 적응형 최적화를 수행합니다.
+    Perform adaptive optimization based on mesh complexity.
     
     Args:
-        mesh (o3d.geometry.TriangleMesh): 대상 메시
-        complexity_level (str): 복잡성 레벨 ("low", "medium", "high", "auto")
+        mesh (o3d.geometry.TriangleMesh): Target mesh
+        complexity_level (str): Complexity level ("low", "medium", "high", "auto")
         
     Returns:
-        o3d.geometry.TriangleMesh: 최적화된 메시
+        o3d.geometry.TriangleMesh: Optimized mesh
     """
     if mesh is None:
         return None
@@ -165,7 +164,6 @@ def adaptive_mesh_optimization(mesh, complexity_level="auto"):
     analysis = analyze_mesh_complexity(mesh)
     
     if complexity_level == "auto":
-        # 자동 복잡성 레벨 결정
         complexity_score = analysis['complexity_score']
         if complexity_score > 0.7:
             complexity_level = "high"
@@ -174,27 +172,22 @@ def adaptive_mesh_optimization(mesh, complexity_level="auto"):
         else:
             complexity_level = "low"
     
-    print(f"\n=== 적응형 메시 최적화 ===")
-    print(f"복잡성 레벨: {complexity_level}")
-    print(f"복잡성 점수: {analysis['complexity_score']:.3f}")
+    print(f"\n=== Adaptive Mesh Optimization ===")
+    print(f"Complexity level: {complexity_level}")
+    print(f"Complexity score: {analysis['complexity_score']:.3f}")
     
-    # 복잡성 레벨에 따른 최적화 전략
     if complexity_level == "high":
-        # 고복잡성: 강력한 리덕션
         optimized_mesh = smart_vertex_reduction(mesh, target_ratio=0.3, quality_priority=True)
         optimized_mesh = optimized_mesh.filter_smooth_simple(number_of_iterations=3)
         
     elif complexity_level == "medium":
-        # 중복잡성: 균형잡힌 리덕션
         optimized_mesh = smart_vertex_reduction(mesh, target_ratio=0.5, quality_priority=True)
         optimized_mesh = optimized_mesh.filter_smooth_simple(number_of_iterations=2)
         
-    else:  # low
-        # 저복잡성: 최소 리덕션
+    else:
         optimized_mesh = smart_vertex_reduction(mesh, target_ratio=0.8, quality_priority=False)
         optimized_mesh = optimized_mesh.filter_smooth_simple(number_of_iterations=1)
     
-    # 최종 정리
     optimized_mesh.remove_degenerate_triangles()
     optimized_mesh.remove_duplicated_triangles()
     optimized_mesh.remove_duplicated_vertices()
@@ -206,14 +199,14 @@ def adaptive_mesh_optimization(mesh, complexity_level="auto"):
 
 def create_lod_hierarchy(mesh, lod_levels=None):
     """
-    계층적 LOD (Level of Detail) 메시를 생성합니다.
+    Create hierarchical LOD (Level of Detail) meshes.
     
     Args:
-        mesh (o3d.geometry.TriangleMesh): 원본 메시
-        lod_levels (dict): LOD 레벨 정의 (None이면 자동 생성)
+        mesh (o3d.geometry.TriangleMesh): Original mesh
+        lod_levels (dict): LOD level definitions (auto-generated if None)
         
     Returns:
-        dict: LOD 레벨별 메시 딕셔너리
+        dict: Dictionary of meshes by LOD level
     """
     if mesh is None:
         return {}
@@ -221,7 +214,6 @@ def create_lod_hierarchy(mesh, lod_levels=None):
     analysis = analyze_mesh_complexity(mesh)
     
     if lod_levels is None:
-        # 메시 복잡성에 따른 자동 LOD 레벨 생성 (6단계)
         if analysis['triangle_count'] > 100000:
             lod_levels = {
                 "ultra_high": 1.0,
@@ -250,50 +242,46 @@ def create_lod_hierarchy(mesh, lod_levels=None):
                 "ultra_low": 0.08
             }
     
-    print(f"\n=== LOD 계층 생성 ===")
-    print(f"원본 메시: {analysis['triangle_count']:,}개 삼각형")
+    print(f"\n=== LOD Hierarchy Generation ===")
+    print(f"Original mesh: {analysis['triangle_count']:,} triangles")
     
     lod_meshes = {}
     
     for lod_name, ratio in lod_levels.items():
-        print(f"\n{lod_name.upper()} LOD 생성 중... (비율: {ratio*100:.0f}%)")
+        print(f"\n{lod_name.upper()} LOD generating... (ratio: {ratio*100:.0f}%)")
         
         if ratio >= 0.95:
-            # 거의 원본: 기본 정리만
             lod_mesh = copy.deepcopy(mesh)
             lod_mesh.remove_degenerate_triangles()
             lod_mesh.remove_duplicated_vertices()
         else:
-            # 단순화 적용
             lod_mesh = smart_vertex_reduction(mesh, target_ratio=ratio, 
                                             quality_priority=(ratio > 0.3))
         
-        # 법선 벡터 재계산
         lod_mesh.compute_vertex_normals()
         lod_mesh.compute_triangle_normals()
         
         lod_meshes[lod_name] = lod_mesh
         
-        print(f"  생성 완료: {len(lod_mesh.vertices):,}개 버텍스, {len(lod_mesh.triangles):,}개 삼각형")
+        print(f"  Complete: {len(lod_mesh.vertices):,} vertices, {len(lod_mesh.triangles):,} triangles")
     
     return lod_meshes
 
 
 def measure_optimization_quality(original_mesh, optimized_mesh):
     """
-    최적화 품질을 측정합니다.
+    Measure optimization quality.
     
     Args:
-        original_mesh (o3d.geometry.TriangleMesh): 원본 메시
-        optimized_mesh (o3d.geometry.TriangleMesh): 최적화된 메시
+        original_mesh (o3d.geometry.TriangleMesh): Original mesh
+        optimized_mesh (o3d.geometry.TriangleMesh): Optimized mesh
         
     Returns:
-        dict: 품질 측정 결과
+        dict: Quality measurement results
     """
     if original_mesh is None or optimized_mesh is None:
         return {}
     
-    # 기본 통계
     orig_vertices = len(original_mesh.vertices)
     opt_vertices = len(optimized_mesh.vertices)
     orig_triangles = len(original_mesh.triangles)
@@ -302,12 +290,10 @@ def measure_optimization_quality(original_mesh, optimized_mesh):
     vertex_reduction = (orig_vertices - opt_vertices) / orig_vertices * 100
     triangle_reduction = (orig_triangles - opt_triangles) / orig_triangles * 100
     
-    # 표면적 보존 정도
     orig_area = original_mesh.get_surface_area()
     opt_area = optimized_mesh.get_surface_area()
     area_preservation = min(opt_area / orig_area, orig_area / opt_area) * 100
     
-    # 부피 보존 정도 (watertight 메시인 경우)
     volume_preservation = 100.0
     if original_mesh.is_watertight() and optimized_mesh.is_watertight():
         orig_volume = original_mesh.get_volume()
@@ -315,7 +301,6 @@ def measure_optimization_quality(original_mesh, optimized_mesh):
         if orig_volume > 0:
             volume_preservation = min(opt_volume / orig_volume, orig_volume / opt_volume) * 100
     
-    # 전체 품질 점수
     quality_score = (area_preservation + volume_preservation) / 2
     
     return {
@@ -360,26 +345,25 @@ def save_optimized_mesh(mesh, output_dir, filename, quality_info=None):
             success = o3d.io.write_triangle_mesh(filepath, mesh)
             if success:
                 saved_files.append(filepath)
-                print(f"저장 완료 ({description}): {filepath}")
+                print(f"Saved ({description}): {filepath}")
             else:
-                print(f"저장 실패: {filepath}")
+                print(f"Save failed: {filepath}")
         except Exception as e:
-            print(f"저장 중 오류 ({ext}): {e}")
+            print(f"Error saving ({ext}): {e}")
     
-    # 품질 정보 저장
     if quality_info and saved_files:
         info_path = os.path.join(output_dir, f"{filename}_optimization_info.txt")
         try:
             with open(info_path, 'w', encoding='utf-8') as f:
-                f.write("=== 메시 최적화 정보 ===\n\n")
-                f.write(f"버텍스 감소율: {quality_info.get('vertex_reduction_percent', 0):.1f}%\n")
-                f.write(f"삼각형 감소율: {quality_info.get('triangle_reduction_percent', 0):.1f}%\n")
-                f.write(f"표면적 보존도: {quality_info.get('area_preservation_percent', 0):.1f}%\n")
-                f.write(f"부피 보존도: {quality_info.get('volume_preservation_percent', 0):.1f}%\n")
-                f.write(f"전체 품질 점수: {quality_info.get('overall_quality_score', 0):.1f}/100\n")
-                f.write(f"압축 비율: {quality_info.get('compression_ratio', 1):.2f}:1\n")
-            print(f"최적화 정보 저장: {info_path}")
+                f.write("=== Mesh Optimization Info ===\n\n")
+                f.write(f"Vertex reduction: {quality_info.get('vertex_reduction_percent', 0):.1f}%\n")
+                f.write(f"Triangle reduction: {quality_info.get('triangle_reduction_percent', 0):.1f}%\n")
+                f.write(f"Surface area preservation: {quality_info.get('area_preservation_percent', 0):.1f}%\n")
+                f.write(f"Volume preservation: {quality_info.get('volume_preservation_percent', 0):.1f}%\n")
+                f.write(f"Overall quality score: {quality_info.get('overall_quality_score', 0):.1f}/100\n")
+                f.write(f"Compression ratio: {quality_info.get('compression_ratio', 1):.2f}:1\n")
+            print(f"Optimization info saved: {info_path}")
         except Exception as e:
-            print(f"정보 파일 저장 중 오류: {e}")
+            print(f"Error saving info file: {e}")
     
     return saved_files
